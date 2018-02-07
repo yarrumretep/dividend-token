@@ -124,8 +124,10 @@ contract DividendToken is ERC20, Ownable, UsingSnapshotable {
 
   function ethDividend() public payable {
     uint dust = msg.value % totalSupply();
+    uint amount = msg.value - dust;
     ethDust += dust;
-    dividends.push(Dividend(ERC20(0x0), msg.value - dust));
+    dividends.push(Dividend(ERC20(0x0), amount));
+    DividendIssued(ERC20(0x0), amount);
   }
 
   function sweepDust() public onlyOwner {
