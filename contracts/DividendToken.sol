@@ -41,6 +41,8 @@ contract DividendToken is ERC20, Ownable, UsingSnapshotable {
   mapping(address => Snapshotable.Uint) internal balanceHistories;
   mapping(address => mapping(address => uint)) internal allowed;
 
+  uint public ethDust;
+
   struct Dividend {
     ERC20 token;
     uint amount;
@@ -120,6 +122,18 @@ contract DividendToken is ERC20, Ownable, UsingSnapshotable {
     DividendIssued(token, amount);
   }
 
+  function ethDividend() public payable {
+    uint dust = msg.value % totalSupply();
+    ethDust += dust;
+    dividends.push(Dividend(ERC20(0x0), msg.value - dust));
+  }
+
+  function sweepDust() public onlyOwner {
+    uint amount = ethDust;
+    ethDust = 0;
+    require(transfer(msg.sender, amount));
+  }
+
   function withdraw() public {
     Snapshotable.Uint storage balanceHistory = balanceHistories[msg.sender];
     if (balanceHistory.count() > 0) {
@@ -137,7 +151,11 @@ contract DividendToken is ERC20, Ownable, UsingSnapshotable {
         Dividend storage current = dividends[dividendIndex];
         uint share = current.amount * balanceValue / totalSupplyValue;
         ERC20 token = current.token;
-        require(token.transfer(msg.sender, share));
+        if (address(token) != 0x0) {
+          require(token.transfer(msg.sender, share));
+        } else {
+          require(transfer(msg.sender, share));
+        }
         Withdrawal(msg.sender, token, share);
       }
       balanceHistory.reset(dividends.length);
