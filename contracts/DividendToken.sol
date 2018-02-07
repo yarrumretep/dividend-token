@@ -125,21 +125,11 @@ contract DividendToken is ERC20, Ownable, UsingSnapshotable {
     if (balanceHistory.count() > 0) {
 
       uint totalSupplyIndex = 0;
-<<<<<<< HEAD
       uint totalSupplyValue = 0;
       uint balanceIndex = 0;
       uint balanceValue = 0;
 
       for (uint dividendIndex = balanceHistory.keyAt(0); dividendIndex < dividends.length; dividendIndex++) {
-=======
-      uint totalSupplyValue = totalSupplyHistory.valueAt(totalSupplyIndex);
-      uint start;
-      uint balanceValue;
-      uint balanceIndex = 0;
-      (start, balanceValue) = balanceHistory.entryAt(balanceIndex); // solhint-disable-line expression-indent
-
-      for (uint dividendIndex = start; dividendIndex < dividends.length; dividendIndex++) {
->>>>>>> 15645cd74bce3e85be1850f116496322f3882737
 
         (totalSupplyValue, totalSupplyIndex) = totalSupplyHistory.scanForKeyBefore(dividendIndex, totalSupplyIndex);
         (balanceValue, balanceIndex) = balanceHistory.scanForKeyBefore(dividendIndex, balanceIndex);
