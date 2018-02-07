@@ -1,5 +1,5 @@
 {
-  "name": "dividend-token",
+  "name": "@optionality.io/dividend-token",
   "version": "0.1.0",
   "description": "An ERC20 token implementation that supports dividends",
   "main": "index.js",
@@ -18,7 +18,7 @@
     "type": "git",
     "url": "git+https://github.com/yarrumretep/dividend-token.git"
   },
-  "author": "",
+  "author": "Peter M. Murray <pete@pmurray.com>",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/yarrumretep/dividend-token/issues"
