@@ -1,0 +1,26 @@
+{
+  "name": "dividend-token",
+  "version": "0.1.0",
+  "description": "An ERC20 token implementation that supports dividends",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "zeppelin-solidity": "^1.6.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yarrumretep/dividend-token.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yarrumretep/dividend-token/issues"
+  },
+  "homepage": "https://github.com/yarrumretep/dividend-token#readme"
+}
