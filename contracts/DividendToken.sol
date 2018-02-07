@@ -29,15 +29,16 @@ pragma solidity 0.4.18;
 import "zeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 import "zeppelin-solidity/contracts/ownership/Ownable.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "snapshotable/contracts/Snapshotable.sol";
 
 // solhint-disable avoid-low-level-calls
 // solhint-disable avoid-call-value
 
-contract DividendToken is ERC20, Ownable {
+contract DividendToken is ERC20, Ownable, UsingSnapshotable {
   using SafeMath for uint;
 
-  uint[] internal totalSupplyHistory;
-  mapping(address => uint[]) internal balanceHistories;
+  Snapshotable.Uint internal totalSupplyHistory;
+  mapping(address => Snapshotable.Uint) internal balanceHistories;
   mapping(address => mapping(address => uint)) internal allowed;
 
   struct Dividend {
@@ -54,30 +55,23 @@ contract DividendToken is ERC20, Ownable {
    * ERC20
    */
   function totalSupply() public view returns (uint) {
-    return lastValue(totalSupplyHistory);
+    return totalSupplyHistory.lastValue();
   }
 
   function transfer(address _to, uint256 _value) public returns (bool) {
     require(_to != address(0));
-
-    decrement(balanceHistories[msg.sender], _value);
-    increment(balanceHistories[_to], _value);
-    Transfer(msg.sender, _to, _value);
+    _transfer(msg.sender, _to, _value);
     return true;
   }
 
   function balanceOf(address _owner) public view returns (uint256 balance) {
-    return lastValue(balanceHistories[_owner]);
+    return balanceHistories[_owner].lastValue();
   }
 
   function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
     require(_to != address(0));
-    require(_value <= allowed[_from][msg.sender]);
-
-    decrement(balanceHistories[_from], _value);
-    increment(balanceHistories[_to], _value);
     allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
-    Transfer(_from, _to, _value);
+    _transfer(_from, _to, _value);
     return true;
   }
 
@@ -127,84 +121,32 @@ contract DividendToken is ERC20, Ownable {
   }
 
   function withdraw() public {
-    uint[] storage balanceHistory = balanceHistories[msg.sender];
-    if (balanceHistory.length > 0) {
-      uint start = index(balanceHistory[0]);
-      //NOTE: you could do a binary search on the totalSupply indices to find the starting index
+    Snapshotable.Uint storage balanceHistory = balanceHistories[msg.sender];
+    if (balanceHistory.count() > 0) {
+
       uint totalSupplyIndex = 0;
-      uint totalSupplyValue = value(totalSupplyHistory[0]);
+      uint totalSupplyValue = 0;
       uint balanceIndex = 0;
-      uint balanceValue = value(balanceHistory[0]);
-      for (uint i = start; i < dividends.length; i++) {
-        while (totalSupplyIndex < totalSupplyHistory.length - 1 && index(totalSupplyHistory[totalSupplyIndex+1]) <= i) {
-          totalSupplyIndex++;
-          totalSupplyValue = value(totalSupplyHistory[totalSupplyIndex]);
-        }
-        while (balanceIndex < balanceHistory.length - 1 && index(balanceHistory[balanceIndex+1]) <= i) {
-          balanceIndex++;
-          balanceValue = value(balanceHistory[balanceIndex]);
-        }
-        Dividend storage current = dividends[i];
+      uint balanceValue = 0;
+
+      for (uint dividendIndex = balanceHistory.keyAt(0); dividendIndex < dividends.length; dividendIndex++) {
+
+        (totalSupplyValue, totalSupplyIndex) = totalSupplyHistory.scanForKeyBefore(dividendIndex, totalSupplyIndex);
+        (balanceValue, balanceIndex) = balanceHistory.scanForKeyBefore(dividendIndex, balanceIndex);
+
+        Dividend storage current = dividends[dividendIndex];
         uint share = current.amount * balanceValue / totalSupplyValue;
         ERC20 token = current.token;
         require(token.transfer(msg.sender, share));
         Withdrawal(msg.sender, token, share);
       }
-      balanceHistory[1] = entry(dividends.length, lastValue(balanceHistory));
-      balanceHistory.length = 1; // TODO: confirm that this zeros the rest of the balance history...
+      balanceHistory.reset(dividends.length);
     }
   }
 
-  /*
-   * Utility functions for packed representations
-   */
-  uint internal constant SHIFT_FACTOR = 2**(256 - 64); // 64 bits of index value
-
-  function index(uint packed) internal pure returns (uint) {
-    return packed / SHIFT_FACTOR;
-  }
-
-  function value(uint packed) internal pure returns (uint) {
-    return packed & (SHIFT_FACTOR - 1);
-  }
-
-  function lastValue(uint[] storage packedlist) internal view returns (uint) {
-    if (packedlist.length == 0) {
-      return 0;
-    } else {
-      return value(packedlist[packedlist.length-1]);
-    }
-  }
-
-  function lastIndex(uint[] storage packedlist) internal view returns (uint) {
-    if (packedlist.length == 0) {
-      return 0;
-    } else {
-      return index(packedlist[packedlist.length-1]);
-    }
-  }
-
-  function entry(uint idx, uint val) internal pure returns (uint) {
-    return (idx * SHIFT_FACTOR) | (val & (SHIFT_FACTOR - 1));
-  }
-
-  function increment(uint[] storage packedList, uint incr) internal {
-    if (packedList.length == 0 || index(packedList[packedList.length-1]) < dividends.length) {
-      packedList.push(entry(dividends.length, incr));
-    } else {
-      packedList[packedList.length-1] += incr;
-    }
-  }
-
-  function decrement(uint[] storage packedList, uint decr) internal {
-    require(packedList.length > 0);
-    uint packed = packedList[packedList.length-1];
-    uint val = value(packed);
-    require(val >= decr);
-    if (index(packed) < dividends.length) {
-      packedList.push(entry(dividends.length, val - decr));
-    } else {
-      packedList[packedList.length-1] = packed - decr;
-    }
+  function _transfer(address _from, address _to, uint _value) internal {
+    balanceHistories[_from].decrement(dividends.length, _value);
+    balanceHistories[_to].increment(dividends.length, _value);
+    Transfer(_from, _to, _value);
   }
 }
