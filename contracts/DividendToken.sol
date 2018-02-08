@@ -140,27 +140,35 @@ contract DividendToken is ERC20, Ownable, UsingSnapshotable {
     Snapshotable.Uint storage balanceHistory = balanceHistories[msg.sender];
     if (balanceHistory.count() > 0) {
 
+      uint i;
       uint totalSupplyIndex = 0;
-      uint totalSupplyValue = 0;
       uint balanceIndex = 0;
-      uint balanceValue = 0;
+      uint firstEligibleDividend = balanceHistory.keyAt(0);
+      uint eligibleDividendCount = dividends.length - firstEligibleDividend;
+      uint[] memory amounts = new uint[](eligibleDividendCount);
 
-      for (uint dividendIndex = balanceHistory.keyAt(0); dividendIndex < dividends.length; dividendIndex++) {
+      for (i = 0; i < eligibleDividendCount; i++) {
+        uint totalSupplyValue = 0;
+        uint balanceValue = 0;
+        uint dividendIndex = firstEligibleDividend + i;
 
         (totalSupplyValue, totalSupplyIndex) = totalSupplyHistory.scanForKeyBefore(dividendIndex, totalSupplyIndex);
         (balanceValue, balanceIndex) = balanceHistory.scanForKeyBefore(dividendIndex, balanceIndex);
 
-        Dividend storage current = dividends[dividendIndex];
-        uint share = current.amount * balanceValue / totalSupplyValue;
-        ERC20 token = current.token;
-        if (address(token) != 0x0) {
-          require(token.transfer(msg.sender, share));
-        } else {
-          require(transfer(msg.sender, share));
-        }
-        Withdrawal(msg.sender, token, share);
+        amounts[i] = dividends[dividendIndex].amount * balanceValue / totalSupplyValue;
       }
+
       balanceHistory.reset(dividends.length);
+
+      for (i = 0; i < eligibleDividendCount; i++) {
+        ERC20 token = dividends[firstEligibleDividend + i].token;
+        if (address(token) != 0x0) {
+          require(token.transfer(msg.sender, amounts[i]));
+        } else {
+          require(transfer(msg.sender, amounts[i]));
+        }
+        Withdrawal(msg.sender, token, amounts[i]);
+      }
     }
   }
 
